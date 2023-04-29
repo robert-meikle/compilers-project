@@ -2,32 +2,12 @@ import ast
 import logging
 import os
 import sys
-from _ast import Add, BinOp
+from _ast import BinOp
 from ast import *
 
 from pytypes import *
 
 types = {"int", "bool", "list", "dict", "None"}
-builtin_funcs = {"print": PyVoid()}
-
-
-class NameGen:
-    tmp_count = 0
-    fmt = "tmp{}"
-
-    @staticmethod
-    def just_name():
-        name_ = NameGen.fmt.format(NameGen.tmp_count)
-        NameGen.tmp_count += 1
-        return Name(id=name_, ctx=Store())
-
-    @staticmethod
-    def create_name(value: AST, acc: list[AST]):
-        tmp_name = NameGen.fmt.format(NameGen.tmp_count)
-        NameGen.tmp_count += 1
-        tmp = Name(id=tmp_name, ctx=Store())
-        acc.append(Assign([tmp], value))
-        return Name(id=tmp_name, ctx=Load())
 
 
 class TypeErrorReporter:
@@ -44,7 +24,9 @@ class TypeErrorReporter:
 
 class TypeChecker:
     def __init__(self) -> None:
-        self.tenv: dict[str, PyType] = {}
+        self.tenv: dict[str, PyType] = {"print": PyVoid()}
+        self.current_func = ""
+        self.func_signatures: dict[str, list[PyType]] = {}
 
     def eval_const_type(self, c: Constant) -> PyType:
         match c.value:
@@ -206,9 +188,8 @@ class TypeChecker:
                 for arg_ in node.args:
                     arg_types.append(self.type_check(arg_))
 
-                if isinstance(node.func, Name):
-                    if node.func.id in builtin_funcs:
-                        return builtin_funcs[node.func.id]
+                return self.type_check(node.func)
+
             case IfExp():
                 true_t = self.type_check(node.body)
                 false_t = self.type_check(node.orelse)
@@ -220,6 +201,37 @@ class TypeChecker:
                         node.col_offset,
                     )
                 return true_t
+            case FunctionDef():
+                old_func = self.current_func
+                self.current_func = node.name
+                self.tenv[node.name] = self.eval_annot_type(node.returns)
+
+                arg_types = []
+                for arg_obj in node.args.args:
+                    arg_t = self.eval_annot_type(arg_obj.annotation)
+                    self.tenv[arg_obj.arg] = arg_t
+                    arg_types.append(arg_t)
+
+                for statement in node.body:
+                    _ = self.type_check(statement)
+
+                self.current_func = old_func
+                self.func_signatures[node.name] = arg_types
+
+                return PyVoid()
+            case Return():
+                ret_type = self.type_check(node.value)
+                expected = self.tenv[self.current_func]
+
+                if ret_type != expected:
+                    TypeErrorReporter.report(
+                        f'[Line {node.lineno}:{node.col_offset}] Incompatible return value type (got "{ret_type}", expected "{expected}")',
+                        node.lineno,
+                        node.col_offset,
+                    )
+
+                return ret_type
+
             case Expr():
                 return self.type_check(node.value)
             case List() | Dict() | Constant():
@@ -248,9 +260,14 @@ def checker():
 
     logging.info("%s\n", ast.unparse(ast_))
 
-    # logging.info("%s\n", ast.dump(ast_, indent=4))
+    logging.info("%s\n", ast.dump(ast_, indent=4))
 
+    # collect global function defs
     type_checker = TypeChecker()
+    for node in ast_.body:
+        if isinstance(node, FunctionDef):
+            type_checker.tenv[node.name] = type_checker.eval_annot_type(node.returns)
+
     _ = type_checker.type_check(ast_)
 
 
