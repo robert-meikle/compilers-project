@@ -16,7 +16,7 @@ class TypeErrorReporter:
     @staticmethod
     def report(e: str, lineno: int, col: int):
         line = TypeErrorReporter.program.splitlines()[lineno - 1]
-        logging.error(e)
+        logging.error("\n%s", e)
         logging.error("\t%s", line)
         logging.error("\t%s^", " " * col)
         exit(-1)
@@ -24,16 +24,19 @@ class TypeErrorReporter:
 
 class TypeChecker:
     def __init__(self) -> None:
-        self.tenv: dict[str, PyType] = {"print": PyVoid()}
+        self.tenv: dict[str, PyType] = {
+            "print": PyFunc([PyAny()], PyVoid()),
+            "int": PyFunc([PyAny()], PyInt()),
+        }
         self.current_func = ""
         self.func_signatures: dict[str, list[PyType]] = {}
 
     def eval_const_type(self, c: Constant) -> PyType:
         match c.value:
-            case int():
-                return PyInt()
             case bool():
                 return PyBool()
+            case int():
+                return PyInt()
             case _:
                 raise RuntimeError("Constant failed to evaluate to int or bool")
 
@@ -119,6 +122,17 @@ class TypeChecker:
 
         return PyVoid()
 
+    def eval_function_def(self, node) -> PyType:
+        assert isinstance(node, FunctionDef)
+        ret_type = self.eval_annot_type(node.returns)
+        arg_types = []
+        for arg_obj in node.args.args:
+            arg_t = self.eval_annot_type(arg_obj.annotation)
+            self.tenv[arg_obj.arg] = arg_t
+            arg_types.append(arg_t)
+
+        return PyFunc(arg_types, ret_type)
+
     def type_check(self, node: AST) -> PyType:
         match node:
             case Module():
@@ -128,13 +142,22 @@ class TypeChecker:
                 logging.info("No type errors found.")
                 return result_type
             case Assign():
+                expr_type = self.type_check(node.value)
+
                 if isinstance(node.targets[0], Name):
-                    if node.targets[0].id not in self.tenv:
+                    if isinstance(expr_type, PyFunc):
+                        self.tenv[node.targets[0].id] = expr_type
+                        return PyVoid()
+                    elif node.targets[0].id not in self.tenv:
                         TypeErrorReporter.report(
                             f"[Line {node.lineno}:{node.col_offset}] Assignment requires type annotation.",
                             node.lineno,
                             node.col_offset,
                         )
+
+                raise NotImplementedError(
+                    f"Unexpected situation in Assign, '{type(node.targets[0])}'"
+                )
 
             case AnnAssign():
                 expected = self.eval_annot_type(node.annotation)
@@ -182,13 +205,35 @@ class TypeChecker:
                     node.lineno,
                     node.col_offset,
                 )
+            case Compare():
+                _ = self.type_check(node.left)
+                for c in node.comparators:
+                    _ = self.type_check(c)
 
+                return PyBool()
             case Call():
                 arg_types = []
                 for arg_ in node.args:
                     arg_types.append(self.type_check(arg_))
 
-                return self.type_check(node.func)
+                result_type = self.type_check(node.func)
+
+                if not isinstance(result_type, PyFunc):
+                    TypeErrorReporter.report(
+                        f'[Line {node.lineno}:{node.col_offset}] "{result_type}" not callable.',
+                        node.lineno,
+                        node.col_offset,
+                    )
+
+                for i, arg_t in enumerate(zip(arg_types, result_type.arg_types)):
+                    if arg_t[0] != arg_t[1]:
+                        TypeErrorReporter.report(
+                            f'[Line {node.lineno}:{node.col_offset}] Argument {i + 1} has incompatible type, got "{arg_t[0]}" expected "{arg_t[1]}".',
+                            node.args[i].lineno,
+                            node.args[i].col_offset,
+                        )
+
+                return result_type.return_type
 
             case IfExp():
                 true_t = self.type_check(node.body)
@@ -204,8 +249,8 @@ class TypeChecker:
             case FunctionDef():
                 old_func = self.current_func
                 self.current_func = node.name
-                self.tenv[node.name] = self.eval_annot_type(node.returns)
 
+                ret_type = self.eval_annot_type(node.returns)
                 arg_types = []
                 for arg_obj in node.args.args:
                     arg_t = self.eval_annot_type(arg_obj.annotation)
@@ -216,12 +261,12 @@ class TypeChecker:
                     _ = self.type_check(statement)
 
                 self.current_func = old_func
-                self.func_signatures[node.name] = arg_types
+                self.tenv[node.name] = PyFunc(arg_types, ret_type)
 
                 return PyVoid()
             case Return():
                 ret_type = self.type_check(node.value)
-                expected = self.tenv[self.current_func]
+                expected = self.tenv[self.current_func].return_type
 
                 if ret_type != expected:
                     TypeErrorReporter.report(
@@ -231,6 +276,14 @@ class TypeChecker:
                     )
 
                 return ret_type
+
+            case If():
+                _ = self.type_check(node.test)
+                for statement in node.body:
+                    _ = self.type_check(statement)
+                for statement in node.orelse:
+                    _ = self.type_check(statement)
+                return PyVoid()
 
             case Expr():
                 return self.type_check(node.value)
@@ -258,15 +311,15 @@ def checker():
     TypeErrorReporter.program = prog
     ast_ = ast.parse(prog)
 
-    logging.info("%s\n", ast.unparse(ast_))
+    logging.info(ast.unparse(ast_))
 
-    logging.info("%s\n", ast.dump(ast_, indent=4))
+    # logging.info("%s\n", ast.dump(ast_, indent=4))
 
     # collect global function defs
     type_checker = TypeChecker()
     for node in ast_.body:
         if isinstance(node, FunctionDef):
-            type_checker.tenv[node.name] = type_checker.eval_annot_type(node.returns)
+            type_checker.tenv[node.name] = type_checker.eval_function_def(node)
 
     _ = type_checker.type_check(ast_)
 
