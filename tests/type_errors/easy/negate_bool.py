@@ -1,1 +1,1 @@
-x: int = -True
+x: bool = -True
