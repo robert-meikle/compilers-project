@@ -2,6 +2,7 @@ import ast
 import logging
 import os
 import sys
+import copy
 from _ast import BinOp
 from ast import *
 
@@ -155,9 +156,23 @@ class TypeChecker:
                             node.col_offset,
                         )
 
-                raise NotImplementedError(
-                    f"Unexpected situation in Assign, '{type(node.targets[0])}'"
-                )
+                match node.targets[0]:
+                    case Subscript():
+                        expected_t = self.type_check(node.targets[0].value)
+                    case Name():
+                        expected_t = self.type_check(node.targets[0])
+                    case _:
+                        raise NotImplementedError(
+                            f"Unexpected situation in Assign, '{type(node.targets[0])}'"
+                        )
+
+                if expr_type != expected_t:
+                    TypeErrorReporter.report(
+                        f'[Line {node.lineno}:{node.col_offset}] Incompatible types in assignment (expression has type "{expr_type}", variable has type "{expected_t}")',
+                        node.lineno,
+                        node.col_offset,
+                    )
+                return PyVoid()
 
             case AnnAssign():
                 expected = self.eval_annot_type(node.annotation)
@@ -247,35 +262,32 @@ class TypeChecker:
                     )
                 return true_t
             case FunctionDef():
-                old_func = self.current_func
-                self.current_func = node.name
+                outer_tenv = copy.deepcopy(self.tenv)
 
-                ret_type = self.eval_annot_type(node.returns)
+                expected_t = self.eval_annot_type(node.returns)
                 arg_types = []
                 for arg_obj in node.args.args:
                     arg_t = self.eval_annot_type(arg_obj.annotation)
                     self.tenv[arg_obj.arg] = arg_t
                     arg_types.append(arg_t)
 
+                actual_t = PyVoid()
                 for statement in node.body:
-                    _ = self.type_check(statement)
+                    actual_t = self.type_check(statement)
 
-                self.current_func = old_func
-                self.tenv[node.name] = PyFunc(arg_types, ret_type)
-
-                return PyVoid()
-            case Return():
-                ret_type = self.type_check(node.value)
-                expected = self.tenv[self.current_func].return_type
-
-                if ret_type != expected:
+                self.tenv = outer_tenv
+                if actual_t != expected_t:
                     TypeErrorReporter.report(
-                        f'[Line {node.lineno}:{node.col_offset}] Incompatible return value type (got "{ret_type}", expected "{expected}")',
+                        f'[Line {node.lineno}:{node.col_offset}] Incompatible return value type (got "{actual_t}", expected "{expected_t}")',
                         node.lineno,
                         node.col_offset,
                     )
 
-                return ret_type
+                self.tenv[node.name] = PyFunc(arg_types, expected_t)
+
+                return PyVoid()
+            case Return():
+                return self.type_check(node.value)
 
             case If():
                 _ = self.type_check(node.test)
@@ -285,6 +297,22 @@ class TypeChecker:
                     _ = self.type_check(statement)
                 return PyVoid()
 
+            case While():
+                _ = self.type_check(node.test)
+                for statement in node.body:
+                    _ = self.type_check(statement)
+                for statement in node.orelse:
+                    _ = self.type_check(statement)
+                return PyVoid()
+
+            case Subscript():
+                obj_t = self.eval_type(node.value)
+
+                match obj_t:
+                    case PyList():
+                        return obj_t.content_type
+                    case _:
+                        raise NotImplementedError("only list subscript")
             case Expr():
                 return self.type_check(node.value)
             case List() | Dict() | Constant():
