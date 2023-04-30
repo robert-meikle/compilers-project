@@ -32,65 +32,6 @@ class TypeChecker:
         self.current_func = ""
         self.func_signatures: dict[str, list[PyType]] = {}
 
-    def eval_const_type(self, c: Constant) -> PyType:
-        match c.value:
-            case bool():
-                return PyBool()
-            case int():
-                return PyInt()
-            case _:
-                raise RuntimeError("Constant failed to evaluate to int or bool")
-
-    def eval_type(self, node) -> PyType:
-        if isinstance(node, Constant):
-            return self.eval_const_type(node)
-
-        if isinstance(node, Name):
-            return self.tenv[node.id]
-
-        if isinstance(node, List):
-            if len(node.elts) > 0:
-                t_0 = self.eval_type(node.elts[0])
-
-                for elt in node.elts[1:]:
-                    t_i = self.eval_type(elt)
-                    if t_i != t_0:
-                        TypeErrorReporter.report(
-                            f'[Line {elt.lineno}:{elt.col_offset}] List contains non-uniform types ("{t_0}", "{t_i}")',
-                            elt.lineno,
-                            elt.col_offset,
-                        )
-                return PyList(t_0)
-            return PyList(PyVoid())
-
-        if isinstance(node, Dict):
-            assert len(node.keys) == len(
-                node.values
-            ), "mismatched number of keys and values in dict"
-
-            if len(node.keys) > 0:
-                key_type = self.eval_type(node.keys[0])
-                val_type = self.eval_type(node.values[0])
-
-                for key in node.keys[1:]:
-                    key_i = self.eval_type(key)
-                    if key_i != key_type:
-                        TypeErrorReporter.report(
-                            f'[Line {key.lineno}:{key.col_offset}] Dict contains non-uniform types ("{key_type}", "{key_i}")',
-                            key.lineno,
-                            key.col_offset,
-                        )
-                for val in node.values[1:]:
-                    val_i = self.eval_type(val)
-                    if val_i != val_type:
-                        TypeErrorReporter.report(
-                            f'[Line {val.lineno}:{val.col_offset}] Dict contains non-uniform types ("{val_type}", "{val_i}")',
-                            val.lineno,
-                            val.col_offset,
-                        )
-                return PyDict(key_type, val_type)
-            return PyDict(PyVoid(), PyVoid())
-
     def name_to_pytype(self, name_: str) -> PyType:
         if name_ == "int":
             return PyInt()
@@ -197,35 +138,60 @@ class TypeChecker:
                 left_t = self.type_check(node.left)
                 right_t = self.type_check(node.right)
 
+                assert isinstance(node.op, Add)
+
                 if isinstance(left_t, (PyInt, PyBool)) and isinstance(
                     right_t, (PyInt, PyBool)
                 ):
                     return PyInt()
 
-                if left_t != right_t:
-                    TypeErrorReporter.report(
-                        f'[Line {node.lineno}:{node.col_offset}] Unsupported operand types for "{type(node.op)}" ("{left_t}", "{right_t}")',
-                        node.lineno,
-                        node.col_offset,
-                    )
+                if left_t == right_t and isinstance(left_t, PyList):
+                    return left_t
 
-                return left_t
-            case UnaryOp():
-                operand_t = self.type_check(node.operand)
-
-                if isinstance(operand_t, (PyInt, PyBool)):
-                    return PyInt()
                 TypeErrorReporter.report(
-                    f'[Line {node.lineno}:{node.col_offset}] Unsupported operand type for unary "{type(node.op)}" ("{operand_t}")',
+                    f'[Line {node.lineno}:{node.col_offset}] Unsupported operand types for "+" ("{left_t}", "{right_t}")',
                     node.lineno,
                     node.col_offset,
                 )
+            case UnaryOp():
+                operand_t = self.type_check(node.operand)
+
+                match node.op:
+                    case USub():
+                        if isinstance(operand_t, (PyInt, PyBool)):
+                            return PyInt()
+                        TypeErrorReporter.report(
+                            f'[Line {node.lineno}:{node.col_offset}] Unsupported operand type for unary "{type(node.op)}" ("{operand_t}")',
+                            node.lineno,
+                            node.col_offset,
+                        )
+                    case Not():
+                        return PyBool()
+                    case _:
+                        raise NotImplementedError(
+                            f"Unimplemented UnaryOp '{type(node.op)}'"
+                        )
+
             case Compare():
                 _ = self.type_check(node.left)
                 for c in node.comparators:
                     _ = self.type_check(c)
 
                 return PyBool()
+            case BoolOp():
+                if len(node.values) > 0:
+                    t_0 = self.type_check(node.values[0])
+
+                    for val in node.values[1:]:
+                        t_i = self.type_check(val)
+                        if t_i != t_0:
+                            TypeErrorReporter.report(
+                                f'[Line {val.lineno}:{val.col_offset}] BoolOp contains non-uniform types ("{t_0}", "{t_i}")',
+                                val.lineno,
+                                val.col_offset,
+                            )
+                    return t_0
+                return PyVoid()
             case Call():
                 arg_types = []
                 for arg_ in node.args:
@@ -306,7 +272,7 @@ class TypeChecker:
                 return PyVoid()
 
             case Subscript():
-                obj_t = self.eval_type(node.value)
+                obj_t = self.type_check(node.value)
 
                 match obj_t:
                     case PyList():
@@ -315,8 +281,55 @@ class TypeChecker:
                         raise NotImplementedError("only list subscript")
             case Expr():
                 return self.type_check(node.value)
-            case List() | Dict() | Constant():
-                return self.eval_type(node)
+            case Constant():
+                match node.value:
+                    case bool():
+                        return PyBool()
+                    case int():
+                        return PyInt()
+                    case _:
+                        raise RuntimeError("Constant failed to evaluate to int or bool")
+            case List():
+                if len(node.elts) > 0:
+                    t_0 = self.type_check(node.elts[0])
+
+                    for elt in node.elts[1:]:
+                        t_i = self.type_check(elt)
+                        if t_i != t_0:
+                            TypeErrorReporter.report(
+                                f'[Line {elt.lineno}:{elt.col_offset}] List contains non-uniform types ("{t_0}", "{t_i}")',
+                                elt.lineno,
+                                elt.col_offset,
+                            )
+                    return PyList(t_0)
+                return PyList(PyVoid())
+            case Dict():
+                assert len(node.keys) == len(
+                    node.values
+                ), "mismatched number of keys and values in dict"
+
+                if len(node.keys) > 0:
+                    key_type = self.type_check(node.keys[0])
+                    val_type = self.type_check(node.values[0])
+
+                    for key in node.keys[1:]:
+                        key_i = self.type_check(key)
+                        if key_i != key_type:
+                            TypeErrorReporter.report(
+                                f'[Line {key.lineno}:{key.col_offset}] Dict contains non-uniform types ("{key_type}", "{key_i}")',
+                                key.lineno,
+                                key.col_offset,
+                            )
+                    for val in node.values[1:]:
+                        val_i = self.type_check(val)
+                        if val_i != val_type:
+                            TypeErrorReporter.report(
+                                f'[Line {val.lineno}:{val.col_offset}] Dict contains non-uniform types ("{val_type}", "{val_i}")',
+                                val.lineno,
+                                val.col_offset,
+                            )
+                    return PyDict(key_type, val_type)
+                return PyDict(PyVoid(), PyVoid())
             case Name():
                 return self.tenv[node.id]
             case _:
