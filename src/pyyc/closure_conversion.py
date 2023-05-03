@@ -49,6 +49,8 @@ builtin_names = {
     "int",
     "eval",
     "input",
+    "print_int_nl",
+    "print_bool",
 }
 
 

@@ -28,6 +28,7 @@ class TypeChecker:
         self.tenv: dict[str, PyType] = {
             "print": PyFunc([PyAny()], PyVoid()),
             "int": PyFunc([PyAny()], PyInt()),
+            "input": PyFunc([], PyAny()),
         }
         self.current_func = ""
         self.func_signatures: dict[str, list[PyType]] = {}
@@ -179,9 +180,10 @@ class TypeChecker:
                         )
 
             case Compare():
-                _ = self.type_check(node.left)
+                node.types_ = []
+                node.types_.append(self.type_check(node.left))
                 for c in node.comparators:
-                    _ = self.type_check(c)
+                    node.types_.append(self.type_check(c))
 
                 return PyBool()
             case BoolOp():

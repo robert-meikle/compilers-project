@@ -181,6 +181,19 @@ int input() {
   return i; 
 }
 
+int input_static(){
+  char buf[100];
+  int i;
+  scanf("%s", buf);
+  if (strcmp(buf, "True") == 0)
+    return 1;
+  else if (strcmp(buf, "False") == 0)
+    return 0;
+  else {
+    return atoi(buf);
+  } 
+}
+
 
 // For idiomatic purposes only.
 pyobj eval_pyobj(pyobj x) {

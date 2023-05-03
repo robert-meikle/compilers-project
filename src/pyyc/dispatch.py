@@ -1,4 +1,4 @@
-from _ast import AnnAssign, BinOp, Call
+from _ast import AnnAssign, BinOp, Call, Compare
 import ast
 from ast import *
 from typing import Any
@@ -7,6 +7,7 @@ from pytypes import *
 
 class Dispatcher(ast.NodeTransformer):
     def visit_AnnAssign(self, node: AnnAssign) -> Any:
+        self.generic_visit(node)
         if isinstance(node.value, List):
             # assign to create_list
             new_body = [
@@ -54,14 +55,26 @@ class Dispatcher(ast.NodeTransformer):
         return Assign(targets=[node.target], value=node.value)
 
     def visit_Call(self, node: Call) -> Any:
-        if isinstance(node.func, Name) and node.func.id == "print":
-            if isinstance(node.type_, PyInt):
-                node.func.id = "print_int_nl"
-            elif isinstance(node.type_, PyBool):
-                node.func.id = "print_bool"
+        self.generic_visit(node)
+        if isinstance(node.func, Name):
+            if node.func.id == "print":
+                if isinstance(node.type_, PyInt):
+                    node.func.id = "print_int_nl"
+                elif isinstance(node.type_, PyBool):
+                    node.func.id = "print_bool"
+            if node.func.id == "int":
+                if (
+                    isinstance(node.args[0], Call)
+                    and isinstance(node.args[0].func, Name)
+                    and node.args[0].func.id == "input"
+                ):
+                    return Call(
+                        func=Name("input_static", ctx=Load()), args=[], keywords=[]
+                    )
         return node
 
     def visit_BinOp(self, node: BinOp) -> Any:
+        self.generic_visit(node)
         if isinstance(node.type_, PyInt):
             return node
         elif isinstance(node.type_, PyList):
@@ -89,6 +102,53 @@ class Dispatcher(ast.NodeTransformer):
             )
         else:
             raise NotImplementedError("Binop unhandled case, shouldn't happen")
+
+    def visit_Compare(self, node: Compare) -> Any:
+        # assume only 2 operands
+        if isinstance(node.ops[0], Eq):
+            if node.types_[0] != node.types_[1]:
+                return Constant(value=False)
+            elif isinstance(node.types_[0], (PyList, PyDict)):
+                return Call(
+                    func=Name("equal", ctx=Load()),
+                    args=[
+                        Call(
+                            func=Name("project_big", ctx=Load()),
+                            args=[node.left],
+                            keywords=[],
+                        ),
+                        Call(
+                            func=Name("project_big", ctx=Load()),
+                            args=[node.comparators[0]],
+                            keywords=[],
+                        ),
+                    ],
+                    keywords=[],
+                )
+            return node
+        elif isinstance(node.ops[0], NotEq):
+            if node.types_[0] != node.types_[1]:
+                return Constant(value=True)
+            elif isinstance(node.types_[0], (PyList, PyDict)):
+                return Call(
+                    func=Name("not_equal", ctx=Load()),
+                    args=[
+                        Call(
+                            func=Name("project_big", ctx=Load()),
+                            args=[node.left],
+                            keywords=[],
+                        ),
+                        Call(
+                            func=Name("project_big", ctx=Load()),
+                            args=[node.comparators[0]],
+                            keywords=[],
+                        ),
+                    ],
+                    keywords=[],
+                )
+            return node
+
+        return node
 
 
 def dispatch(ast_: AST):

@@ -7,7 +7,7 @@ class Uniquify(ast.NodeTransformer):
         # scope stack
         self.scopes = [{}]
         self.var_count = 0
-        self.keywords = ["print", "eval", "input", "int"]
+        self.keywords = ["print", "eval", "input", "int", "print_int_nl", "print_bool"]
         self.already_done = []
 
     def defined_in_scope(self, var: str) -> str:

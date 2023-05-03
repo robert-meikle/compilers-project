@@ -91,6 +91,8 @@ function_names = {
     "set_free_vars",
     "error_pyobj",
     "print",
+    "print_int_nl",
+    "print_bool",
 }
 
 
