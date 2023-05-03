@@ -51,6 +51,7 @@ builtin_names = {
     "input",
     "print_int_nl",
     "print_bool",
+    "input_static",
 }
 
 

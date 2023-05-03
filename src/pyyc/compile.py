@@ -93,6 +93,7 @@ function_names = {
     "print",
     "print_int_nl",
     "print_bool",
+    "input_static",
 }
 
 
@@ -216,6 +217,7 @@ def compile_program():
 
     logging.info("\nPre-Flatten\n----------")
     ast_ = flatten(ast_, [])
+    ast_ = add_parents(ast_)
     log_ast(ast_)
 
     # Create .flatpy file
@@ -227,9 +229,9 @@ def compile_program():
     # ast_ = explicate(ast_)
     # log_ast(ast_)
 
-    # logging.info("\nPost-Flatten\n----------")
-    # ast_ = flatten(ast_, [])
-    # log_ast(ast_)
+    logging.info("\nPost-Flatten\n----------")
+    ast_ = flatten(ast_, [])
+    log_ast(ast_)
 
     logging.info("\nBuild CFGs\n----------")
     function_defs = get_function_defs(ast_)

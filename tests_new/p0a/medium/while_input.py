@@ -1,2 +1,2 @@
-while (eval(input())):
+while int(input()):
     print(1)

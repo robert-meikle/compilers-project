@@ -1,13 +1,52 @@
 import ast
 from ast import Name, Subscript, FunctionDef
 
+function_names = {
+    "is_int",
+    "is_bool",
+    "is_big",
+    "is_function",
+    "is_object",
+    "is_class",
+    "is_unbound_method",
+    "is_bound_method",
+    "inject_int",
+    "inject_bool",
+    "inject_big",
+    "project_int",
+    "project_bool",
+    "project_big",
+    "is_true",
+    "print_any",
+    "input_int",
+    "input_pyobj",
+    "eval_pyobj",
+    "eval_input_pyobj",
+    "create_list",
+    "create_dict",
+    "set_subscript",
+    "get_subscript",
+    "add",
+    "equal",
+    "not_equal",
+    "create_closure",
+    "get_fun_ptr",
+    "get_free_vars",
+    "set_free_vars",
+    "error_pyobj",
+    "print",
+    "print_int_nl",
+    "print_bool",
+    "input_static",
+}
+
 
 class Uniquify(ast.NodeTransformer):
     def __init__(self):
         # scope stack
         self.scopes = [{}]
         self.var_count = 0
-        self.keywords = ["print", "eval", "input", "int", "print_int_nl", "print_bool"]
+        self.keywords = function_names
         self.already_done = []
 
     def defined_in_scope(self, var: str) -> str:
