@@ -82,7 +82,8 @@ class TypeChecker:
                 for statement in node.body:
                     result_type = self.type_check(statement)
                 logging.info("No type errors found.")
-                return result_type
+                node.type_ = result_type
+                return node
             case Assign():
                 expr_type = self.type_check(node.value)
 
@@ -113,6 +114,7 @@ class TypeChecker:
                         node.lineno,
                         node.col_offset,
                     )
+                node.type_ = PyVoid()
                 return PyVoid()
 
             case AnnAssign():
@@ -132,6 +134,7 @@ class TypeChecker:
                     raise NotImplementedError(
                         f"AnnAssign target not Name '{type(node.target)}'"
                     )
+                node.type_ = PyVoid()
                 return PyVoid()
 
             case BinOp():
@@ -143,9 +146,11 @@ class TypeChecker:
                 if isinstance(left_t, (PyInt, PyBool)) and isinstance(
                     right_t, (PyInt, PyBool)
                 ):
+                    node.type_ = PyInt()
                     return PyInt()
 
                 if left_t == right_t and isinstance(left_t, PyList):
+                    node.type_ = left_t
                     return left_t
 
                 TypeErrorReporter.report(
@@ -159,6 +164,7 @@ class TypeChecker:
                 match node.op:
                     case USub():
                         if isinstance(operand_t, (PyInt, PyBool)):
+                            node.type_ = PyInt()
                             return PyInt()
                         TypeErrorReporter.report(
                             f'[Line {node.lineno}:{node.col_offset}] Unsupported operand type for unary "{type(node.op)}" ("{operand_t}")',
@@ -336,6 +342,32 @@ class TypeChecker:
                 raise NotImplementedError(
                     f"AST node '{type(node)}' not implemented in type checker."
                 )
+
+
+def run_type_checker(ast_: AST, filename: str):
+    """
+    Runs the type checker.
+    """
+    if not os.path.isfile(filename):
+        raise FileNotFoundError(f"'{filename}' does not correspond to a valid file.")
+
+    # read in the python source to print lines from if type error is found
+    prog = ""
+    with open(filename, "r", encoding="utf-8") as file_:
+        prog = file_.read()
+    TypeErrorReporter.program = prog
+
+    # logging.info("%s\n", ast.dump(ast_, indent=4))
+
+    # collect global function defs
+    type_checker = TypeChecker()
+    assert isinstance(ast_, Module)
+    for node in ast_.body:
+        if isinstance(node, FunctionDef):
+            type_checker.tenv[node.name] = type_checker.eval_function_def(node)
+
+    ast_ = type_checker.type_check(ast_)
+    return ast_
 
 
 def checker():

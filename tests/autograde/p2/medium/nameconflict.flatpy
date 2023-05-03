@@ -1,0 +1,45 @@
+class Closure():
+	def __init__(self, f, fr):
+		self.f = f
+		self.fr = fr
+def get_free_vars(c):
+	return c.fr
+def get_fun_ptr(c):
+	return c.f
+def create_closure(f,fr):
+	return Closure(f,fr)
+def inject_big(s):
+	return s
+
+def closure_2(free_vars__create_f_1,_f_4):
+	return _f_4
+def closure_1(free_vars__use_f_0):
+	_f_2 = free_vars__use_f_0[0]
+	return _f_2
+def closure_0(free_vars_lambda_0,_x_3):
+	return _x_3
+tmp0 = []
+lambda_0 = create_closure(closure_0, tmp0)
+_f_2 = lambda_0
+tmp1 = [_f_2]
+_use_f_0 = create_closure(closure_1, tmp1)
+tmp2 = []
+_create_f_1 = create_closure(closure_2, tmp2)
+tmp3 = inject_big(_create_f_1)
+tmp4 = get_free_vars(tmp3)
+tmp5 = inject_big(_create_f_1)
+tmp6 = get_fun_ptr(tmp5)
+tmp7 = tmp6(tmp4, 2)
+print(tmp7)
+tmp8 = inject_big(_use_f_0)
+tmp9 = get_free_vars(tmp8)
+tmp10 = inject_big(_use_f_0)
+tmp11 = get_fun_ptr(tmp10)
+tmp12 = tmp11(tmp9)
+tmp13 = inject_big(tmp12)
+tmp14 = get_free_vars(tmp13)
+tmp15 = tmp11(tmp9)
+tmp16 = inject_big(tmp15)
+tmp17 = get_fun_ptr(tmp16)
+tmp18 = tmp17(tmp14, 4)
+print(tmp18)
