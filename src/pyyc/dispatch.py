@@ -63,6 +63,7 @@ class Dispatcher(ast.NodeTransformer):
                 elif isinstance(node.type_, PyBool):
                     node.func.id = "print_bool"
             if node.func.id == "int":
+                print("test")
                 if (
                     isinstance(node.args[0], Call)
                     and isinstance(node.args[0].func, Name)
@@ -104,6 +105,7 @@ class Dispatcher(ast.NodeTransformer):
             raise NotImplementedError("Binop unhandled case, shouldn't happen")
 
     def visit_Compare(self, node: Compare) -> Any:
+        self.generic_visit(node)
         # assume only 2 operands
         if isinstance(node.ops[0], Eq):
             if node.types_[0] != node.types_[1]:
