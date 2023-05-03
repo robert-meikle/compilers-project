@@ -38,6 +38,7 @@ function_names = {
     "print_int_nl",
     "print_bool",
     "input_static",
+    "int",
 }
 
 
