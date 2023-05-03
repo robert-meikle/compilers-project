@@ -1,4 +1,4 @@
-from _ast import AnnAssign, BinOp
+from _ast import AnnAssign, BinOp, Call
 import ast
 from ast import *
 from typing import Any
@@ -51,6 +51,15 @@ class Dispatcher(ast.NodeTransformer):
                     )
                 )
             return new_body
+        return Assign(targets=[node.target], value=node.value)
+
+    def visit_Call(self, node: Call) -> Any:
+        if isinstance(node.func, Name) and node.func.id == "print":
+            if isinstance(node.type_, PyInt):
+                node.func.id = "print_int_nl"
+            elif isinstance(node.type_, PyBool):
+                node.func.id = "print_bool"
+        return node
 
     def visit_BinOp(self, node: BinOp) -> Any:
         if isinstance(node.type_, PyInt):

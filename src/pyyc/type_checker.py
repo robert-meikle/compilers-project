@@ -205,6 +205,9 @@ class TypeChecker:
 
                 result_type = self.type_check(node.func)
 
+                if isinstance(node.func, Name) and node.func.id == "print":
+                    node.type_ = arg_types[0]
+
                 if not isinstance(result_type, PyFunc):
                     TypeErrorReporter.report(
                         f'[Line {node.lineno}:{node.col_offset}] "{result_type}" not callable.',
