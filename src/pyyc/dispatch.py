@@ -4,11 +4,11 @@ from ast import *
 from typing import Any
 from pytypes import *
 
-
 class Dispatcher(ast.NodeTransformer):
     def visit_AnnAssign(self, node: AnnAssign) -> Any:
         self.generic_visit(node)
         if isinstance(node.value, List):
+            print(node.annotation.slice.id)
             # assign to create_list
             new_body = [
                 Assign(
@@ -34,6 +34,14 @@ class Dispatcher(ast.NodeTransformer):
             ]
             # populate list
             for i, val in enumerate(node.value.elts):
+                inject_val_func = "inject_"
+                match node.annotation.slice.id:
+                    case "int": 
+                        inject_val_func = "inject_int"
+                    case "bool":
+                        inject_val_func = "inject_bool"
+                    case _:
+                        raise NotImplementedError("unimplemented list eliment type: ",node.annotation.slice.id)
                 new_body.append(
                     Expr(
                         value=Call(
@@ -45,7 +53,11 @@ class Dispatcher(ast.NodeTransformer):
                                     args=[Constant(i)],
                                     keywords=[],
                                 ),
-                                val,
+                                Call(
+                                    func=Name(inject_val_func, Load()),
+                                    args=[val],
+                                    keywords=[],
+                                )
                             ],
                             keywords=[],
                         )
