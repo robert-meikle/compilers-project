@@ -101,7 +101,7 @@ class TypeChecker:
 
                 match node.targets[0]:
                     case Subscript():
-                        expected_t = self.type_check(node.targets[0].value)
+                        expected_t = self.type_check(node.targets[0].value).content_type
                     case Name():
                         expected_t = self.type_check(node.targets[0])
                     case _:
@@ -115,8 +115,8 @@ class TypeChecker:
                         node.lineno,
                         node.col_offset,
                     )
-                node.type_ = PyVoid()
-                return PyVoid()
+                node.type_ = expr_type#node.type_ = PyVoid()
+                return expr_type#return PyVoid()
 
             case AnnAssign():
                 expected = self.eval_annot_type(node.annotation)

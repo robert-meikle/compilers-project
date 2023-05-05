@@ -5,6 +5,44 @@ from typing import Any
 from pytypes import *
 
 class Dispatcher(ast.NodeTransformer):
+    def visit_Assign(self, node):
+        self.generic_visit(node)
+        if isinstance(node.targets[0], Subscript):
+            # for lists and dicts call normally, else need to inject
+            val_func = None
+            if isinstance(node.value,List):
+                val_func = node.value
+            else:
+                inject_val_func = "inject_"
+                match node.type_:
+                    case PyInt(): 
+                        inject_val_func = "inject_int"
+                    case PyBool():
+                        inject_val_func = "inject_bool"
+                    case _:
+                        raise NotImplementedError("unimplemented list element type: ",node.annotation.slice.id)
+                val_func = Call(
+                    func=Name(inject_val_func, Load()),
+                    args=[node.value],
+                    keywords=[],
+                )
+            node = Expr(
+                    value=Call(
+                            func=Name("set_subscript", Load()),
+                            args=[
+                                node.targets[0].value,
+                                Call(
+                                    func=Name("inject_int", Load()),
+                                    args=[node.targets[0].slice],
+                                    keywords=[],
+                                ),
+                                val_func
+                            ],
+                            keywords=[],
+                        )
+                )
+            return node
+        return node
     def visit_AnnAssign(self, node: AnnAssign) -> Any:
         self.generic_visit(node)
         if isinstance(node.value, List):
@@ -33,14 +71,24 @@ class Dispatcher(ast.NodeTransformer):
             ]
             # populate list
             for i, val in enumerate(node.value.elts):
-                inject_val_func = "inject_"
-                match node.annotation.slice.id:
-                    case "int": 
-                        inject_val_func = "inject_int"
-                    case "bool":
-                        inject_val_func = "inject_bool"
-                    case _:
-                        raise NotImplementedError("unimplemented list eliment type: ",node.annotation.slice.id)
+                # for lists and dicts call normally, else need to inject
+                val_func = None
+                if isinstance(val,List):
+                    val_func = val
+                else:
+                    inject_val_func = "inject_"
+                    match node.annotation.slice.id:
+                        case "int": 
+                            inject_val_func = "inject_int"
+                        case "bool":
+                            inject_val_func = "inject_bool"
+                        case _:
+                            raise NotImplementedError("unimplemented list element type: ",node.annotation.slice.id)
+                    val_func = Call(
+                        func=Name(inject_val_func, Load()),
+                        args=[val],
+                        keywords=[],
+                    )
                 new_body.append(
                     Expr(
                         value=Call(
@@ -52,11 +100,7 @@ class Dispatcher(ast.NodeTransformer):
                                     args=[Constant(i)],
                                     keywords=[],
                                 ),
-                                Call(
-                                    func=Name(inject_val_func, Load()),
-                                    args=[val],
-                                    keywords=[],
-                                )
+                                val_func
                             ],
                             keywords=[],
                         )
@@ -172,8 +216,8 @@ class Dispatcher(ast.NodeTransformer):
     
     def visit_Subscript(self, node):
         self.generic_visit(node)
-        # if the subscript is part of a type annotation ignore it
-        if node.value.id == "list":
+        # if the subscript is part of a type annotation or its a Store, ignore it
+        if node.value.id == "list" or isinstance(node.ctx, Store):
             return node
         parent = node.parent
         node = Call(
@@ -183,10 +227,9 @@ class Dispatcher(ast.NodeTransformer):
         match parent.type_:
             case PyInt():
                 node = Call(func=Name("project_int", Load()),args=[node],keywords=[])
+            case PyBool():
+                node = Call(func=Name("project_bool", Load()),args=[node],keywords=[])
         return node
-
-        
-        
     
     def visit_Constant(self, node):
         if node.value == True: node.value = 1
