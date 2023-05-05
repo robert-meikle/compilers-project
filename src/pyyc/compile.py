@@ -196,6 +196,7 @@ def compile_program():
     ast_ = run_type_checker(ast_, sys.argv[1])
 
     logging.info("\nDispatching\n----------")
+    ast_ = add_parents(ast_)
     ast_ = dispatch(ast_)
     log_ast(ast_)
 

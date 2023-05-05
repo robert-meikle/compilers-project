@@ -8,7 +8,6 @@ class Dispatcher(ast.NodeTransformer):
     def visit_AnnAssign(self, node: AnnAssign) -> Any:
         self.generic_visit(node)
         if isinstance(node.value, List):
-            print(node.annotation.slice.id)
             # assign to create_list
             new_body = [
                 Assign(
@@ -170,7 +169,25 @@ class Dispatcher(ast.NodeTransformer):
                 )
             return node
         return node
+    
+    def visit_Subscript(self, node):
+        self.generic_visit(node)
+        # if the subscript is part of a type annotation ignore it
+        if node.value.id == "list":
+            return node
+        parent = node.parent
+        node = Call(
+                   func=Name("get_subscript", ctx=Load()),
+                   args=[node.value,Call(func=Name("inject_int", Load()),args=[node.slice],keywords=[])],
+                   keywords=[])
+        match parent.type_:
+            case PyInt():
+                node = Call(func=Name("project_int", Load()),args=[node],keywords=[])
+        return node
 
+        
+        
+    
     def visit_Constant(self, node):
         if node.value == True: node.value = 1
         elif node.value == False: node.value = 0
