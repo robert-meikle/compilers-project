@@ -61,7 +61,8 @@ class Dispatcher(ast.NodeTransformer):
                 if isinstance(node.type_, PyInt):
                     node.func.id = "print_int_nl"
                 elif isinstance(node.type_, PyBool):
-                    node.func.id = "print_bool"
+                    node.func.id = "print_bool_nl"
+                    #node.args[0] = Call(func=Name("inject_bool", ctx=Load()), args=[node.args[0]], keywords=[])
             if node.func.id == "int":
                 print("test")
                 if (
@@ -107,9 +108,15 @@ class Dispatcher(ast.NodeTransformer):
     def visit_Compare(self, node: Compare) -> Any:
         self.generic_visit(node)
         # assume only 2 operands
+        # for Is, convert to false, if different types, if same type convert to Eq
+        if isinstance(node.ops[0], Is):
+            if node.types_[0] != node.types_[1]:
+                return Constant(value=0)
+            node.ops[0] = Eq()
         if isinstance(node.ops[0], Eq):
             if node.types_[0] != node.types_[1]:
-                return Constant(value=False)
+                if isinstance(node.types_[0], (PyList, PyDict)) or isinstance(node.types_[1], (PyList, PyDict)):
+                    return Constant(value=0)
             elif isinstance(node.types_[0], (PyList, PyDict)):
                 return Call(
                     func=Name("equal", ctx=Load()),
@@ -130,7 +137,8 @@ class Dispatcher(ast.NodeTransformer):
             return node
         elif isinstance(node.ops[0], NotEq):
             if node.types_[0] != node.types_[1]:
-                return Constant(value=True)
+                if isinstance(node.types_[0], (PyList, PyDict)) or isinstance(node.types_[1], (PyList, PyDict)):
+                    return Constant(value=0)
             elif isinstance(node.types_[0], (PyList, PyDict)):
                 return Call(
                     func=Name("not_equal", ctx=Load()),
@@ -149,7 +157,11 @@ class Dispatcher(ast.NodeTransformer):
                     keywords=[],
                 )
             return node
+        return node
 
+    def visit_Constant(self, node):
+        if node.value == True: node.value = 1
+        elif node.value == False: node.value = 0
         return node
 
 

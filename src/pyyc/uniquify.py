@@ -37,6 +37,7 @@ function_names = {
     "print",
     "print_int_nl",
     "print_bool",
+	"print_bool_nl",
     "input_static",
     "int",
 }
@@ -54,12 +55,13 @@ class Uniquify(ast.NodeTransformer):
         """
         Checks if a var name is already defined in a scope, if so returns modified name.
         """
-
+		
         if var in self.keywords:
             return var
         for scope in self.scopes[::-1]:
             if var in scope:
                 return scope[var]
+        print(var)
         return ""
 
     def add_definition(self, var: str) -> str:
@@ -70,7 +72,6 @@ class Uniquify(ast.NodeTransformer):
             return var
         if var in self.scopes[-1]:
             return var
-
         new_name = f"_{var}_{self.var_count}"
         self.scopes[-1][var] = new_name
         self.var_count += 1

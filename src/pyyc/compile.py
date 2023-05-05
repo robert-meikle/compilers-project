@@ -21,8 +21,8 @@ from type_checker import run_type_checker
 from dispatch import dispatch
 
 # optimization imports, currently unused
-# from optimizations.dead_stores import dead_store_elim
-# from optimizations.lvn import constant_folding, copy_folding, lvn
+from optimizations.dead_stores import dead_store_elim
+from optimizations.lvn import constant_folding, copy_folding, lvn
 
 ASM_TEMPLATE = """{label}:
 	pushl %ebp ## save caller's base pointer 
@@ -93,6 +93,7 @@ function_names = {
     "print",
     "print_int_nl",
     "print_bool",
+	"print_bool_nl",
     "input_static",
 }
 
@@ -109,19 +110,19 @@ def compile_function(function):
     cfg = liveness_analysis(cfg)
     cfg.display_liveness()
 
-    # logging.info(f"\nOptimizations\n-----------------")
+    logging.info(f"\nOptimizations\n-----------------")
     ## Do optimizations here
-    # for bb in cfg.nodes:
-    # 	if len(bb.instructions):
-    # 		bb_lvn = lvn(bb)
-    # 		bb = constant_folding(bb, bb_lvn)
-    # 		logging.info(f"\nconstant folded\n{bb}")
-    #
-    # 		bb = copy_folding(bb, bb_lvn)
-    # 		logging.info(f"\ncopy folded\n{bb}")
-    #
-    # 		bb = dead_store_elim(bb)
-    # 		logging.info(f"\ndead store eliminated\n{bb}\n*********")
+    for bb in cfg.nodes:
+     	if len(bb.instructions):
+     		bb_lvn = lvn(bb)
+     		bb = constant_folding(bb, bb_lvn)
+     		logging.info(f"\nconstant folded\n{bb}")
+    
+     		bb = copy_folding(bb, bb_lvn)
+     		logging.info(f"\ncopy folded\n{bb}")
+    
+     		bb = dead_store_elim(bb)
+     		logging.info(f"\ndead store eliminated\n{bb}\n*********")
 
     assignments = {}
     vars_ = set()
