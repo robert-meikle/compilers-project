@@ -7,7 +7,7 @@ from cfg import CFGNode
 # generate hash key given instruction and current value numbers
 def hash_key(instruction, values):
 	# if mov no op to hash
-	if (isinstance(instruction, IR_Mov)):
+	if (isinstance(instruction, IR_Mov) or isinstance(instruction, IR_Return)):
 		return f"{instruction.src}"
 	# if an IR_Call and is an eval_input_int(), hash must be unique
 	if (isinstance(instruction, IR_Call)):
@@ -50,7 +50,9 @@ def lvn(block: CFGNode):
 			continue
 		#  if the hash key is already present in the table then associate the value number with dst
 		if (hash_key(instruction, values) in values):
-			values[f"{instruction.dst}"] = values[hash_key(instruction, values)]
+			# return has no dst
+			if not isinstance(instruction, IR_Return):
+				values[f"{instruction.dst}"] = values[hash_key(instruction, values)]
 		# else insert a new value number into the table at the hash key location record that new value number for T_i
 		else:
 			values[hash_key(instruction, values)] = value_number # value number for expression
@@ -135,7 +137,8 @@ def copy_folding(block: CFGNode, step_values):
 			continue
 		# get value_number of dst and check to see if a variable has the same value number
 		key = hash_key(instruction,step_values[i])
-		key = str(instruction.dst)
+		if not isinstance(instruction, IR_Return):
+			key = str(instruction.dst)
 		# iterate through value number keys to find a match
 		for k in step_values[i].keys():
 			if isinstance(instruction, IR_Binop):

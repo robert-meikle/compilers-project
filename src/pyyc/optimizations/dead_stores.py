@@ -23,7 +23,7 @@ def repeated_dse(bb: CFGNode) -> tuple[CFGNode, bool]:
 	
 	for i, inst in enumerate(bb.instructions):
 		match inst:
-			case IR_Jmp() | IR_Call():
+			case IR_Jmp() | IR_Call() | IR_Return():
 				new_instructions.append(inst)
 			case _:
 				if isinstance(inst, IR_Compare) and not inst.dst:
@@ -33,5 +33,6 @@ def repeated_dse(bb: CFGNode) -> tuple[CFGNode, bool]:
 					new_instructions.append(inst)
 				else:
 					changed = True
+	if len(bb.instructions) != len(new_instructions): print("dead stores removed instructions")
 	bb.instructions = new_instructions
 	return bb, changed
