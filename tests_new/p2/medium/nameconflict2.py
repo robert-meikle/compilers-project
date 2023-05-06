@@ -3,8 +3,8 @@ x: int = 7
 def y() -> None:
     f = 7
 
-def f() -> Callable[[int], int]:
+def f(y: int) -> int:
     x: int = 2
-    return lambda y: x + y
+    return y + x
 
-print(f()(3))
+print(f(3))

@@ -1,10 +1,11 @@
-f: Callable[[int], int] = lambda x: x
+f: int= 1
 
-def use_f() -> Callable[[int], int]:
+def use_f() -> int:
     return f
 
-def create_f(f: Callable[[int], int]) -> Callable[[int], int]:
+def create_f(f: int) -> int:
     return f
 
 print(create_f(2))
-print(use_f()(4))
+f = 4
+print(use_f())

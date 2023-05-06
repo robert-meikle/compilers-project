@@ -230,13 +230,16 @@ class TypeChecker:
             case IfExp():
                 true_t = self.type_check(node.body)
                 false_t = self.type_check(node.orelse)
-
+                
                 if true_t != false_t:
                     TypeErrorReporter.report(
                         f'[Line {node.lineno}:{node.col_offset}] Conditional evaluates to multiple types ("{true_t}", "{false_t}")',
                         node.lineno,
                         node.col_offset,
                     )
+                # type check condition 
+                self.type_check(node.test)
+                node.type_ = true_t
                 return true_t
             case FunctionDef():
                 outer_tenv = copy.deepcopy(self.tenv)

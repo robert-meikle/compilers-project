@@ -1,7 +1,7 @@
 def sum(a: int, b: int) -> int:
     return a + b
 
-def prod(a: int, b:L int) -> int:
+def prod(a: int, b: int) -> int:
     return 0 if b == 0 else a + prod(a, b + -1)
 
 def sub(a: int, b: int) -> int:

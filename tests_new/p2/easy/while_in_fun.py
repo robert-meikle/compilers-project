@@ -3,4 +3,4 @@ def while_in_fun(x: int, y: int) -> int:
         x = x + 1
     return x
 
-print(while_in_fun(eval(input()), eval(input())))
+print(while_in_fun(int(input()), int(input())))
