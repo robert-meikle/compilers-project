@@ -55,14 +55,12 @@ class Uniquify(ast.NodeTransformer):
         """
         Checks if a var name is already defined in a scope, if so returns modified name.
         """
-		
         if var in self.keywords:
             return var
         for scope in self.scopes[::-1]:
             if var in scope:
                 return scope[var]
-        print(var)
-        return ""
+        return var
 
     def add_definition(self, var: str) -> str:
         """
@@ -91,7 +89,6 @@ class Uniquify(ast.NodeTransformer):
             case Subscript():
                 if isinstance(node.targets[0].value, Name):
                     _ = self.add_definition(node.targets[0].value.id)
-
         self.generic_visit(node)
         return node
 
