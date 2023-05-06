@@ -109,21 +109,21 @@ def compile_function(function):
 
     cfg = liveness_analysis(cfg)
     cfg.display_liveness()
-
+    
     logging.info(f"\nOptimizations\n-----------------")
     ## Do optimizations here
     for bb in cfg.nodes:
      	if len(bb.instructions):
      		bb_lvn = lvn(bb)
-     		bb = constant_folding(bb, bb_lvn)
+     		#bb = constant_folding(bb, bb_lvn)
      		logging.info(f"\nconstant folded\n{bb}")
     
-     		bb = copy_folding(bb, bb_lvn)
+     		#bb = copy_folding(bb, bb_lvn)
      		logging.info(f"\ncopy folded\n{bb}")
     
      		bb = dead_store_elim(bb)
      		logging.info(f"\ndead store eliminated\n{bb}\n*********")
-
+    
     assignments = {}
     vars_ = set()
     complete = False

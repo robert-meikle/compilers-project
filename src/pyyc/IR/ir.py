@@ -141,6 +141,7 @@ class IR_Call(IR_Instruction):
 		for a in self.args:
 			if isinstance(a, IR_Var):
 				self.reads.add(a.name)
+		self.reads.add(self.func_name)
 		if self.dst:
 			assert isinstance(self.dst, IR_Var)
 			self.writes.add(self.dst.name)

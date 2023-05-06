@@ -11,7 +11,7 @@ def hash_key(instruction, values):
 		return f"{instruction.src}"
 	# if an IR_Call and is an eval_input_int(), hash must be unique
 	if (isinstance(instruction, IR_Call)):
-		if (instruction.func_name == "eval_input_int"):
+		if (instruction.func_name == "eval_input_int"):#if (instruction.func_name[:5] != "print"):
 			return f"{instruction.func_name}_{instruction.id}"
 		
 	# if has values return hash:
