@@ -7,6 +7,75 @@ from pytypes import *
 class Dispatcher(ast.NodeTransformer):
     def visit_Assign(self, node):
         self.generic_visit(node)
+        # needed for list definitions created by flattening
+        if isinstance(node.value, List):
+            print(ast.dump(node))
+            # try to detect list element type, else default to int
+            el_type = "int"
+            if len(node.value.elts) > 0 and isinstance(node.value.elts[0], Constant):
+                el_type = type(node.value.elts[0].value).__name__
+            # assign to create_list
+            new_body = [
+                Assign(
+                    targets=node.targets,
+                    value=Call(
+                        func=Name("inject_big", Load()),
+                        args=[
+                            Call(
+                                func=Name("create_list", Load()),
+                                args=[
+                                    Call(
+                                        func=Name("inject_int", Load()),
+                                        args=[Constant(len(node.value.elts))],
+                                        keywords=[],
+                                    )
+                                ],
+                                keywords=[],
+                            )
+                        ],
+                        keywords=[],
+                    ),
+                )
+            ]
+            # populate list
+            for i, val in enumerate(node.value.elts):
+                # for lists and dicts call normally, else need to inject
+                val_func = None
+                if isinstance(val,List):
+                    val_func = val
+                else:
+                    inject_val_func = "inject_"
+                    match el_type:
+                        case "int": 
+                            inject_val_func = "inject_int"
+                        case "bool":
+                            inject_val_func = "inject_bool"
+                        case _:
+                            print("unkown: ",el_type)
+                    val_func = Call(
+                        func=Name(inject_val_func, Load()),
+                        args=[val],
+                        keywords=[],
+                    )
+                new_body.append(
+                    Expr(
+                        value=Call(
+                            func=Name("set_subscript", Load()),
+                            args=[
+                                node.targets[0],
+                                Call(
+                                    func=Name("inject_int", Load()),
+                                    args=[Constant(i)],
+                                    keywords=[],
+                                ),
+                                val_func
+                            ],
+                            keywords=[],
+                        )
+                    )
+                )
+            return new_body
+        # for assignments to subscripts
         if isinstance(node.targets[0], Subscript):
             # for lists and dicts call normally, else need to inject
             val_func = None
@@ -46,6 +115,7 @@ class Dispatcher(ast.NodeTransformer):
     def visit_AnnAssign(self, node: AnnAssign) -> Any:
         self.generic_visit(node)
         if isinstance(node.value, List):
+            print(ast.dump(node))
             # assign to create_list
             new_body = [
                 Assign(
@@ -217,14 +287,18 @@ class Dispatcher(ast.NodeTransformer):
     def visit_Subscript(self, node):
         self.generic_visit(node)
         # if the subscript is part of a type annotation or its a Store, ignore it
-        if node.value.id == "list" or isinstance(node.ctx, Store):
+        if (hasattr(node.value, "id") and node.value.id == "list") or isinstance(node.ctx, Store):
             return node
         parent = node.parent
+        # try to get parent type, assume int by default
+        parent_type = PyInt()
+        if hasattr(parent, "type_"): 
+            parent_type = parent.type_
         node = Call(
                    func=Name("get_subscript", ctx=Load()),
                    args=[node.value,Call(func=Name("inject_int", Load()),args=[node.slice],keywords=[])],
                    keywords=[])
-        match parent.type_:
+        match parent_type:
             case PyInt():
                 node = Call(func=Name("project_int", Load()),args=[node],keywords=[])
             case PyBool():

@@ -216,7 +216,7 @@ def compile_program():
     ast_ = closure(ast_)
     ast_ = add_parents(ast_)
     log_ast(ast_)
-
+    
     logging.info("\nPre-Flatten\n----------")
     ast_ = flatten(ast_, [])
     ast_ = add_parents(ast_)
@@ -230,6 +230,10 @@ def compile_program():
     # logging.info("\nExplicate\n----------")
     # ast_ = explicate(ast_)
     # log_ast(ast_)
+    logging.info("\nDispatching\n----------")
+    ast_ = dispatch(ast_)
+    ast_ = add_parents(ast_)
+    log_ast(ast_)
 
     logging.info("\nPost-Flatten\n----------")
     ast_ = flatten(ast_, [])

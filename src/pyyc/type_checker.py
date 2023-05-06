@@ -284,7 +284,8 @@ class TypeChecker:
 
             case Subscript():
                 obj_t = self.type_check(node.value)
-
+                # set object type_ for dispatching nested subscripts
+                node.type_ = obj_t
                 match obj_t:
                     case PyList():
                         return obj_t.content_type
