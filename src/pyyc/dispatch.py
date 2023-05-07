@@ -364,6 +364,8 @@ class Dispatcher(ast.NodeTransformer):
             ],
             keywords=[],
         )
+        if isinstance(parent, Subscript):
+            return node
         match parent_type:
             case PyInt():
                 node = Call(func=Name("project_int", Load()), args=[node], keywords=[])

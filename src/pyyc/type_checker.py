@@ -135,7 +135,7 @@ class TypeChecker:
                     raise NotImplementedError(
                         f"AnnAssign target not Name '{type(node.target)}'"
                     )
-                node.type_ = PyVoid()
+                node.type_ = expr_type
                 return PyVoid()
 
             case BinOp():
