@@ -72,6 +72,10 @@ class Dispatcher(ast.NodeTransformer):
             # try to detect dict key/val type, else default to int
             key_type = "int"
             val_type = "int"
+            # can detect nested dicts here
+            if (hasattr(node,"type_")):
+                if str(node.type_.val_type)!="int":
+                    val_type = "big"
             if len(node.value.keys) > 0 and isinstance(node.value.keys[0], Constant):
                 el_type = type(node.value.keys[0].value).__name__
                 if isinstance(node.value.values[0], Constant):
@@ -99,12 +103,16 @@ class Dispatcher(ast.NodeTransformer):
                 val_func = None
                 if isinstance(val, List):
                     val_func = val
+                    key_func = key
                 else:
-                    val_func = Call(
-                        func=Name(f"inject_{val_type}", Load()),
-                        args=[val],
-                        keywords=[],
-                    )
+                    if val_type != "big":
+                        val_func = Call(
+                            func=Name(f"inject_{val_type}", Load()),
+                            args=[val],
+                            keywords=[],
+                        )
+                    else:
+                        val_func = val
                     key_func = Call(
                         func=Name(f"inject_{key_type}", Load()),
                         args=[key],
@@ -168,7 +176,7 @@ class Dispatcher(ast.NodeTransformer):
     def visit_AnnAssign(self, node: AnnAssign) -> Any:
         self.generic_visit(node)
         if isinstance(node.value, List):
-            print(ast.dump(node))
+            #print(ast.dump(node))
             # assign to create_list
             new_body = [
                 Assign(
@@ -233,7 +241,9 @@ class Dispatcher(ast.NodeTransformer):
                     )
                 )
             return new_body
-        return Assign(targets=[node.target], value=node.value)
+        a = Assign(targets=[node.target], value=node.value)
+        a.type_ = node.type_
+        return a
 
     def visit_Call(self, node: Call) -> Any:
         self.generic_visit(node)

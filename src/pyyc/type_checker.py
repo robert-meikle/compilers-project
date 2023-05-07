@@ -343,7 +343,9 @@ class TypeChecker:
                                 val.lineno,
                                 val.col_offset,
                             )
+                    node.type_ = PyDict(key_type, val_type)
                     return PyDict(key_type, val_type)
+                node.type_ = PyDict(key_type, val_type)
                 return PyDict(PyVoid(), PyVoid())
             case Name():
                 return self.tenv[node.id]
